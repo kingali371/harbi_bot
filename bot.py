@@ -70,7 +70,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_text = f"""
 🔥 *أهلاً وسهلاً بك، {user.first_name}!* 🔥
 ╔════════════════════════╗
-║    أهلاً وسهلاً بك، عزيزي المستخدم          ║
+║    أهلاً وسهلاً بك، عزيزي المستخدم     ║
 ║  أقوى منصة مكافآت وعروض  ║
 ╚════════════════════════╝
 
@@ -475,4 +475,215 @@ async def about_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = f"""
 ℹ️ *عن بوت HARBI*
 
-⭐ *الإصدار:*
+⭐ *الإصدار:* {VERSION}
+🔥 *أقوى منصة مكافآت وعروض في سوريا*
+
+📊 *إحصائيات البوت:*
+• 👥 عدد المستخدمين: {total_users}
+• 🪙 إجمالي النقاط: {total_points}
+
+👑 *المالك:* HARBI 🇸🇾
+📅 *تاريخ الإطلاق:* 2025
+
+✨ *مميزاتنا:*
+• نظام نقاط متكامل
+• متجر متنوع
+• مكافآت يومية
+• نظام إحالة
+• تحويل النقاط بين الأعضاء
+
+شكراً لثقتك بنا! 🙏
+"""
+    await query.edit_message_text(text, parse_mode="Markdown", reply_markup=main_keyboard())
+
+# ===================== أوامر الأدمن =====================
+
+async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """لوحة تحكم الأدمن"""
+    user_id = update.effective_user.id
+    if user_id not in ADMIN_IDS:
+        await update.message.reply_text("⛔ *غير مصرح لك بالدخول إلى لوحة الأدمن!*", parse_mode="Markdown")
+        return
+    
+    await update.message.reply_text(
+        "👑 *لوحة تحكم الأدمن* 👑\n\nاختر الإجراء المناسب:",
+        parse_mode="Markdown",
+        reply_markup=admin_keyboard()
+    )
+
+async def admin_add_points(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """إضافة نقاط لمستخدم (للأدمن)"""
+    query = update.callback_query
+    await query.answer()
+    
+    await query.edit_message_text(
+        "➕ *إضافة نقاط لمستخدم*\n\n"
+        "أرسل الأمر بالشكل التالي:\n"
+        "`/add_points [user_id] [عدد النقاط]`\n\n"
+        "مثال: `/add_points 123456789 500`\n\n"
+        "📌 *ملاحظة:* يمكنك إضافة نقاط سالبة للخصم.",
+        parse_mode="Markdown",
+        reply_markup=admin_keyboard()
+    )
+
+async def admin_add_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """إضافة رصيد لمستخدم (للأدمن)"""
+    query = update.callback_query
+    await query.answer()
+    
+    await query.edit_message_text(
+        "💰 *إضافة رصيد لمستخدم*\n\n"
+        "أرسل الأمر بالشكل التالي:\n"
+        "`/add_balance [user_id] [المبلغ]`\n\n"
+        "مثال: `/add_balance 123456789 10000`\n\n"
+        "📌 *ملاحظة:* يمكنك إضافة مبلغ سالب للخصم.",
+        parse_mode="Markdown",
+        reply_markup=admin_keyboard()
+    )
+
+async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """إحصائيات البوت"""
+    query = update.callback_query
+    await query.answer()
+    
+    total_users = db.get_all_users_count()
+    total_points = db.get_total_points()
+    
+    text = f"""
+📊 *إحصائيات البوت الكاملة*
+
+👥 *المستخدمين:*
+• المجموع: {total_users}
+
+🪙 *النقاط:*
+• المجموع الكلي: {total_points}
+• متوسط النقاط لكل مستخدم: {total_points // total_users if total_users > 0 else 0}
+
+💰 *الرصيد الكلي:* جاري الحساب
+
+📈 *الأداء:* ممتاز ✅
+
+👑 *الأدمن المسؤولون:* {len(ADMIN_IDS)}
+"""
+    await query.edit_message_text(text, parse_mode="Markdown", reply_markup=admin_keyboard())
+
+async def add_points_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """أمر إضافة النقاط"""
+    user_id = update.effective_user.id
+    if user_id not in ADMIN_IDS:
+        await update.message.reply_text("⛔ غير مصرح.")
+        return
+    
+    try:
+        target_id = int(context.args[0])
+        points = int(context.args[1])
+        
+        db.update_points(target_id, points, f"إضافة من الأدمن: {points} نقطة")
+        
+        target_user = db.get_user(target_id)
+        await update.message.reply_text(
+            f"✅ *تم {'إضافة' if points > 0 else 'خصم'} {abs(points)} نقطة {'للمستخدم' if points > 0 else 'من المستخدم'} {target_id}*\n"
+            f"🪙 *الرصيد الجديد:* {target_user['points']} نقطة",
+            parse_mode="Markdown"
+        )
+    except (IndexError, ValueError):
+        await update.message.reply_text("❌ الاستخدام: `/add_points [user_id] [النقاط]`", parse_mode="Markdown")
+
+async def add_balance_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """أمر إضافة الرصيد"""
+    user_id = update.effective_user.id
+    if user_id not in ADMIN_IDS:
+        await update.message.reply_text("⛔ غير مصرح.")
+        return
+    
+    try:
+        target_id = int(context.args[0])
+        amount = int(context.args[1])
+        
+        db.update_balance(target_id, amount, f"إضافة من الأدمن: {amount} ل.س")
+        
+        target_user = db.get_user(target_id)
+        await update.message.reply_text(
+            f"✅ *تم {'إضافة' if amount > 0 else 'خصم'} {abs(amount)} ل.س {'للمستخدم' if amount > 0 else 'من المستخدم'} {target_id}*\n"
+            f"💰 *الرصيد الجديد:* {target_user['balance']} ل.س",
+            parse_mode="Markdown"
+        )
+    except (IndexError, ValueError):
+        await update.message.reply_text("❌ الاستخدام: `/add_balance [user_id] [المبلغ]`", parse_mode="Markdown")
+
+# ===================== معالج الأزرار الرئيسي =====================
+
+async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """معالج جميع أزرار البوت"""
+    query = update.callback_query
+    data = query.data
+    
+    if data == "home":
+        await home(update, context)
+    elif data == "my_points":
+        await my_points(update, context)
+    elif data == "my_balance":
+        await my_balance(update, context)
+    elif data == "daily":
+        await daily_reward(update, context)
+    elif data == "shop":
+        await show_shop(update, context)
+    elif data.startswith("cat_"):
+        await show_category(update, context)
+    elif data.startswith("buy_"):
+        await buy_product(update, context)
+    elif data == "referral":
+        await referral_system(update, context)
+    elif data == "leaderboard":
+        await leaderboard(update, context)
+    elif data == "transfer_points":
+        await transfer_points_menu(update, context)
+    elif data == "history":
+        await transaction_history(update, context)
+    elif data == "help":
+        await help_menu(update, context)
+    elif data == "about":
+        await about_bot(update, context)
+    elif data == "redeem_menu":
+        await show_shop(update, context)
+    # أوامر الأدمن
+    elif data == "admin_add_points":
+        await admin_add_points(update, context)
+    elif data == "admin_add_balance":
+        await admin_add_balance(update, context)
+    elif data == "admin_stats":
+        await admin_stats(update, context)
+    else:
+        await query.answer("⚠️ هذا الزر قيد التطوير حالياً!")
+
+# ===================== تشغيل البوت =====================
+
+def main():
+    """تشغيل البوت"""
+    # إنشاء جداول قاعدة البيانات
+    db.create_tables()
+    
+    # إنشاء التطبيق
+    app = Application.builder().token(TOKEN).build()
+    
+    # إضافة معالج الأوامر
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("transfer", transfer_command))
+    app.add_handler(CommandHandler("admin", admin_panel))
+    app.add_handler(CommandHandler("add_points", add_points_command))
+    app.add_handler(CommandHandler("add_balance", add_balance_command))
+    
+    # إضافة معالج الأزرار
+    app.add_handler(CallbackQueryHandler(handle_callbacks))
+    
+    # تشغيل البوت
+    print("=" * 50)
+    print("🔥 بوت متجر القوي يعمل الآن... 🔥")
+    print(f"📊 الإصدار: {VERSION}")
+    print(f"👥 الأدمن المسجلون: {len(ADMIN_IDS)}")
+    print("=" * 50)
+    
+    app.run_polling()
+
+if __name__ == "__main__":
+    main()
