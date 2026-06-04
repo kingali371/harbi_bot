@@ -70,7 +70,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_text = f"""
 🔥 *أهلاً وسهلاً بك، {user.first_name}!* 🔥
 ╔════════════════════════╗
-║     𝗛𝗔𝗥𝗕𝗜 🇸🇾🦅          ║
+║    أهلاً وسهلاً بك، عزيزي المستخدم          ║
 ║  أقوى منصة مكافآت وعروض  ║
 ╚════════════════════════╝
 
